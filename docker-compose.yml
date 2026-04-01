@@ -1,0 +1,89 @@
+services:
+  # Servicio Laravel (PHP + Apache)
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: sysf_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    networks:
+      - sysf_network
+    depends_on:
+      - mysql
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=sysf_db
+      - DB_USERNAME=sysf_user
+      - DB_PASSWORD=sysf_password
+
+  # Servicio Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: sysf_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - sysf_network
+    depends_on:
+      - app
+
+  # Servicio MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: sysf_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: sysf_db
+      MYSQL_USER: sysf_user
+      MYSQL_PASSWORD: sysf_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - sysf_mysql_data:/var/lib/mysql
+    networks:
+      - sysf_network
+
+  # Servicio phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: sysf_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "8081:80"
+    networks:
+      - sysf_network
+    depends_on:
+      - mysql
+
+  # Servicio Node.js para frontend (Vite)
+  node:
+    image: node:20-alpine
+    container_name: sysf_node
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    networks:
+      - sysf_network
+    command: tail -f /dev/null
+
+networks:
+  sysf_network:
+    driver: bridge
+
+volumes:
+  sysf_mysql_data:
+    driver: local
