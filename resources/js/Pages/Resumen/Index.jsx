@@ -5,6 +5,7 @@ import CreateResumenModal from '@/Components/CreateResumenModal';
 import EditResumenModal from '@/Components/EditResumenModal';
 import DeleteConfirmModal from '@/Components/DeleteResumenConfirmModal';
 import ImportExcelModal from '@/Components/ImportResumenExcelModal';
+import { useToast } from '@/Components/Toast';
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -19,6 +20,7 @@ import {
 
 export default function ResumenIndex({ resumens, totales, filters }) {
     const { flash } = usePage().props;
+    const { success, error, warning, ToastContainer } = useToast();
     const [search, setSearch] = useState(filters.search || '');
     const [perPage, setPerPage] = useState(filters.perPage || 5);
     const [sortField, setSortField] = useState('codigo');
@@ -136,6 +138,10 @@ export default function ResumenIndex({ resumens, totales, filters }) {
             onSuccess: () => {
                 setShowCreateModal(false);
                 form.reset();
+                success('Registro creado exitosamente');
+            },
+            onError: () => {
+                error('Error al crear el registro. Verifica los datos.');
             },
         });
     };
@@ -180,9 +186,9 @@ export default function ResumenIndex({ resumens, totales, filters }) {
 
     const handleEditSubmit = (e) => {
         e.preventDefault();
-        
+
         router.put(`/resumen/${editForm.data.id}`, {
-            item: editForm.data.item,
+            item: editForm.data.item || 0,
             codigo: editForm.data.codigo,
             especie: editForm.data.especie,
             producto: editForm.data.producto,
@@ -190,16 +196,20 @@ export default function ResumenIndex({ resumens, totales, filters }) {
             estado: editForm.data.estado,
             talla: editForm.data.talla,
             empaque: editForm.data.empaque,
-            ingresos: editForm.data.ingresos,
-            salidas: editForm.data.salidas,
-            lb: editForm.data.lb,
-            observacion_organoleptica: editForm.data.observacion_organoleptica,
+            ingresos: editForm.data.ingresos ? parseInt(editForm.data.ingresos) : 0,
+            salidas: editForm.data.salidas ? parseInt(editForm.data.salidas) : 0,
+            lb: editForm.data.lb || null,
+            observacion_organoleptica: editForm.data.observacion_organoleptica || '',
         }, {
             preserveScroll: true,
             onSuccess: () => {
                 setShowEditModal(false);
                 setResumenToEdit(null);
                 editForm.reset();
+                success('Registro actualizado exitosamente');
+            },
+            onError: () => {
+                error('Error al actualizar el registro. Verifica los datos.');
             },
         });
     };
@@ -217,17 +227,21 @@ export default function ResumenIndex({ resumens, totales, filters }) {
 
     const handleDeleteConfirm = () => {
         if (resumenToDelete) {
-            router.post(`/resumen/${resumenToDelete.id}`, {
-                _method: 'DELETE',
-            }, {
+            router.delete(`/resumen/${resumenToDelete.id}`, {
                 onSuccess: () => {
                     closeDeleteModal();
+                    success('Registro eliminado exitosamente');
+                },
+                onError: () => {
+                    error('Error al eliminar el registro.');
                 },
             });
         }
     };
 
     // Funciones para Importar
+    const [isImporting, setIsImporting] = useState(false);
+
     const openImportModal = () => {
         setShowImportModal(true);
     };
@@ -236,15 +250,80 @@ export default function ResumenIndex({ resumens, totales, filters }) {
         setShowImportModal(false);
     };
 
-    const handleImportSubmit = (file) => {
+    const handleImportSubmit = async (file) => {
+        console.log('=== Resumen handleImportSubmit llamado ===');
+        console.log('Archivo:', file?.name, 'Size:', file?.size);
+
+        if (!file) {
+            warning('Por favor selecciona un archivo para importar');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            warning('El archivo es demasiado grande. Máximo 10MB.');
+            return;
+        }
+
+        setIsImporting(true);
+
         const formData = new FormData();
         formData.append('file', file);
-        
-        router.post('/resumen/import', formData, {
-            onSuccess: () => {
-                closeImportModal();
-            },
-        });
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const getCookie = (name) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        };
+        const xsrfToken = getCookie('XSRF-TOKEN');
+
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        };
+        if (csrfToken) {
+            headers['X-CSRF-TOKEN'] = csrfToken;
+        } else if (xsrfToken) {
+            headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
+        }
+
+        try {
+            const response = await fetch('/resumen/import', {
+                method: 'POST',
+                body: formData,
+                headers: headers,
+                credentials: 'same-origin',
+            });
+
+            const contentType = response.headers.get('content-type');
+
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log('Respuesta:', data);
+
+                if (response.ok && data.success) {
+                    success(data.message || 'Importación exitosa');
+                    closeImportModal();
+                    window.location.reload();
+                } else {
+                    error(data.message || 'Error desconocido');
+                }
+            } else {
+                if (response.ok) {
+                    success('Importación completada');
+                    closeImportModal();
+                    window.location.reload();
+                } else {
+                    error('Error del servidor (HTTP ' + response.status + ')');
+                }
+            }
+        } catch (error) {
+            console.error('Error de conexión:', error);
+            error('Error de conexión con el servidor: ' + error.message);
+        } finally {
+            setIsImporting(false);
+        }
     };
 
     const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all duration-200 text-sm";
@@ -253,6 +332,7 @@ export default function ResumenIndex({ resumens, totales, filters }) {
     return (
         <AppLayout title="Resumen">
             <Head title="Resumen" />
+            <ToastContainer />
 
             {/* Mensajes Flash */}
             {flash?.success && (
@@ -518,6 +598,7 @@ export default function ResumenIndex({ resumens, totales, filters }) {
                 isOpen={showImportModal}
                 onClose={closeImportModal}
                 onSubmit={handleImportSubmit}
+                isSubmitting={isImporting}
             />
         </AppLayout>
     );

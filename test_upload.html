@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Importación</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            background: #f8f9fa;
+        }
+        .upload-area:hover {
+            background: #e9ecef;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .file-info {
+            margin: 15px 0;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Prueba de Importación de Excel</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p style="font-size: 18px; margin-bottom: 15px;">📁 Arrastra tu archivo Excel aquí</p>
+            <p style="color: #666; margin-bottom: 20px;">o</p>
+            <label class="btn" for="fileInput">
+                Seleccionar Archivo
+            </label>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+        </div>
+
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <strong>Archivo seleccionado:</strong>
+            <p id="fileName"></p>
+            <p id="fileSize"></p>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="btn" id="importBtn" disabled>
+                🚀 Importar Datos
+            </button>
+        </div>
+
+        <div id="status"></div>
+
+        <div id="log" class="log" style="display: none;">
+            <strong>📋 Log de actividad:</strong>
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const importBtn = document.getElementById('importBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const status = document.getElementById('status');
+        const log = document.getElementById('log');
+        const logContent = document.getElementById('logContent');
+
+        let selectedFile = null;
+
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            entry.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#007bff';
+            logContent.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = type;
+            status.style.display = 'block';
+        }
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#e9ecef';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '#f8f9fa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#f8f9fa';
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+
+            const validExtensions = ['.xlsx', '.xls', '.csv'];
+            const extension = '.' + file.name.split('.').pop().toLowerCase();
+
+            if (!validExtensions.includes(extension)) {
+                showStatus('❌ Por favor selecciona un archivo Excel válido (.xlsx o .xls)', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = `Tamaño: ${(file.size / 1024).toFixed(2)} KB`;
+            fileInfo.style.display = 'block';
+            importBtn.disabled = false;
+
+            addLog(`Archivo seleccionado: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+        }
+
+        importBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showStatus('❌ No hay archivo seleccionado', 'error');
+                return;
+            }
+
+            // Obtener token CSRF
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            
+            if (!csrfToken) {
+                showStatus('⚠️ No se encontró el token CSRF, continuando sin él...', 'info');
+            }
+
+            const formData = new FormData();
+            if (csrfToken) {
+                formData.append('_token', csrfToken);
+            }
+            formData.append('file', selectedFile);
+
+            importBtn.disabled = true;
+            importBtn.textContent = '⏳ Importando...';
+            log.style.display = 'block';
+
+            addLog('Iniciando importación...');
+            addLog(`Enviando archivo: ${selectedFile.name}`);
+
+            try {
+                addLog('Enviando petición a /ingresos/import...');
+                
+                const response = await fetch('http://localhost:8000/ingresos/import', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                addLog(`Respuesta recibida - Status: ${response.status}`);
+                addLog(`Content-Type: ${response.headers.get('content-type')}`);
+
+                const contentType = response.headers.get('content-type');
+
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    addLog(`Respuesta JSON: ${JSON.stringify(data)}`);
+
+                    if (response.ok && data.success) {
+                        showStatus(`✅ ${data.message}`, 'success');
+                        addLog(`✅ Importación exitosa: ${data.count} registros creados`);
+                    } else {
+                        showStatus(`❌ ${data.message}`, 'error');
+                        addLog(`❌ Error: ${data.message}`);
+                    }
+                } else {
+                    const text = await response.text();
+                    addLog(`Respuesta no-JSON: ${text.substring(0, 200)}`);
+                    
+                    if (response.ok) {
+                        showStatus('✅ Importación completada', 'success');
+                        addLog('✅ Importación exitosa');
+                    } else {
+                        showStatus('❌ Error al procesar la solicitud', 'error');
+                        addLog(`❌ Error HTTP ${response.status}`);
+                    }
+                }
+            } catch (error) {
+                addLog(`❌ Error de conexión: ${error.message}`);
+                showStatus(`❌ Error de conexión: ${error.message}`, 'error');
+                console.error('Error:', error);
+            } finally {
+                importBtn.disabled = false;
+                importBtn.textContent = '🚀 Importar Datos';
+            }
+        });
+
+        // Log inicial
+        addLog('Página cargada correctamente');
+        addLog('Esperando selección de archivo...');
+    </script>
+</body>
+</html>

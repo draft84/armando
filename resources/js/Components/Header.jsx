@@ -41,7 +41,25 @@ export default function Header({ toggleSidebar, darkMode, toggleDarkMode }) {
     const unreadCount = notifications.filter(n => n.unread).length;
 
     const handleLogout = () => {
-        router.post('/logout');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/html, application/xhtml+xml',
+                'X-CSRF-TOKEN': csrfToken || '',
+            },
+            credentials: 'same-origin',
+        }).then(response => {
+            if (response.ok) {
+                window.location.href = '/';
+            } else {
+                window.location.href = '/';
+            }
+        }).catch(() => {
+            window.location.href = '/';
+        });
     };
 
     return (

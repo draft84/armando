@@ -5,6 +5,7 @@ import CreateIngresoModal from '@/Components/CreateIngresoModal';
 import EditIngresoModal from '@/Components/EditIngresoModal';
 import DeleteConfirmModal from '@/Components/DeleteConfirmModal';
 import ImportExcelModal from '@/Components/ImportExcelModal';
+import { useToast } from '@/Components/Toast';
 import {
     MagnifyingGlassIcon,
     PlusIcon,
@@ -19,6 +20,7 @@ import {
 
 export default function IngresosIndex({ ingresos, totales, filters }) {
     const { flash } = usePage().props;
+    const { success, error, warning, ToastContainer } = useToast();
     const [search, setSearch] = useState(filters.search || '');
     const [perPage, setPerPage] = useState(filters.perPage || 5);
     const [sortField, setSortField] = useState('fechaemp');
@@ -164,6 +166,10 @@ export default function IngresosIndex({ ingresos, totales, filters }) {
             onSuccess: () => {
                 setShowCreateModal(false);
                 form.reset();
+                success('Registro creado exitosamente');
+            },
+            onError: () => {
+                error('Error al crear el registro. Verifica los datos.');
             },
         });
     };
@@ -191,14 +197,33 @@ export default function IngresosIndex({ ingresos, totales, filters }) {
 
     const handleEditSubmit = (e) => {
         e.preventDefault();
-        editForm.post(route('ingresos.update', editForm.data.id), {
-            forceFormData: true,
-            data: {
-                _method: 'PUT',
-                ...editForm.data,
-            },
+        router.put(`/ingresos/${editForm.data.id}`, {
+            items: editForm.data.items,
+            fechaemp: editForm.data.fechaemp,
+            lote: editForm.data.lote,
+            codigo: editForm.data.codigo,
+            caja: editForm.data.caja,
+            especie: editForm.data.especie,
+            producto: editForm.data.producto,
+            calidad: editForm.data.calidad,
+            fecha_elab: editForm.data.fecha_elab,
+            fechavenci: editForm.data.fechavenci,
+            talla: editForm.data.talla,
+            uds: editForm.data.uds,
+            libras: editForm.data.libras,
+            quees: editForm.data.quees,
+            empaque: editForm.data.empaque,
+            cuarto: editForm.data.cuarto,
+            posicion: editForm.data.posicion,
+            tarima: editForm.data.tarima,
+        }, {
+            preserveScroll: true,
             onSuccess: () => {
                 closeEditModal();
+                success('Registro actualizado exitosamente');
+            },
+            onError: () => {
+                error('Error al actualizar el registro. Verifica los datos.');
             },
         });
     };
@@ -219,30 +244,146 @@ export default function IngresosIndex({ ingresos, totales, filters }) {
             router.delete(route('ingresos.destroy', ingresoToDelete.id), {
                 onSuccess: () => {
                     closeDeleteModal();
+                    success('Registro eliminado exitosamente');
+                },
+                onError: () => {
+                    error('Error al eliminar el registro.');
                 },
             });
         }
     };
 
     // Funciones para Importar
+    const [isImporting, setIsImporting] = useState(false);
+
     const openImportModal = () => {
+        console.log('🔵 [openImportModal] Abriendo modal de importación');
+        console.log('🔵 showImportModal antes:', showImportModal);
         setShowImportModal(true);
+        console.log('🔵 showImportModal después:', true);
     };
 
     const closeImportModal = () => {
+        console.log('Cerrando modal de importación');
         setShowImportModal(false);
     };
 
-    const handleImportSubmit = (file) => {
-        // Aquí se manejará la importación del Excel
+    const handleImportSubmit = async (file) => {
+        console.log('=== handleImportSubmit llamado ===');
+        console.log('Archivo:', file?.name, 'Size:', file?.size, 'Type:', file?.type);
+
+        if (!file) {
+            console.error('No hay archivo seleccionado');
+            warning('Por favor selecciona un archivo para importar');
+            return;
+        }
+
+        // Validar tamaño (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            warning('El archivo es demasiado grande. Máximo 10MB.');
+            return;
+        }
+
+        setIsImporting(true);
+        console.log('Estado isImporting establecido a true');
+
+        // Crear FormData con el archivo y el token CSRF
         const formData = new FormData();
         formData.append('file', file);
-        
-        router.post(route('ingresos.import'), formData, {
-            onSuccess: () => {
-                closeImportModal();
-            },
-        });
+
+        // Obtener el token CSRF del meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+            || document.head.querySelector('meta[name="csrf-token"]')?.content;
+
+        console.log('📤 Enviando petición a:', '/ingresos/import');
+        console.log('📦 FormData - Archivo:', file.name, 'Tamaño:', (file.size / 1024).toFixed(2), 'KB');
+        console.log('🔑 CSRF Token:', csrfToken ? 'PRESENTE' : 'AUSENTE - Intentando con cookie XSRF-TOKEN');
+
+        // Si no hay token en meta, intentar obtenerlo de la cookie XSRF-TOKEN
+        const getCookie = (name) => {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        };
+
+        const xsrfToken = getCookie('XSRF-TOKEN');
+
+        try {
+            const startTime = Date.now();
+            console.log('⏱️ Iniciando petición fetch...');
+
+            const headers = {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            };
+
+            // Agregar el token CSRF en los headers
+            if (csrfToken) {
+                headers['X-CSRF-TOKEN'] = csrfToken;
+            } else if (xsrfToken) {
+                headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
+            } else {
+                console.warn('⚠️ No se encontró token CSRF, intentando sin token...');
+            }
+
+            const response = await fetch('/ingresos/import', {
+                method: 'POST',
+                body: formData,
+                headers: headers,
+                credentials: 'same-origin',
+            });
+
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+            console.log(`⏱️ Respuesta recibida en ${elapsed}s - Status: ${response.status}`);
+            console.log('📋 Content-Type:', response.headers.get('content-type'));
+
+            // Verificar si la respuesta es JSON
+            const contentType = response.headers.get('content-type');
+
+            if (contentType && contentType.includes('application/json')) {
+                // Respuesta JSON
+                const data = await response.json();
+                console.log('📊 Respuesta JSON:', data);
+
+                if (response.ok && data.success) {
+                    const message = data.message || 'Importación exitosa';
+                    console.log('✅', message);
+                    success(message);
+                    closeImportModal();
+                    // Recargar para ver los nuevos datos
+                    window.location.reload();
+                } else {
+                    const errorMsg = data.message || 'Error desconocido al importar';
+                    console.error('❌ Error:', errorMsg);
+                    if (data.errores) {
+                        console.error('Detalles:', data.errores);
+                    }
+                    error(errorMsg);
+                }
+            } else {
+                // Respuesta HTML (probablemente redirección con mensaje flash)
+                console.warn('⚠️ Respuesta no-JSON recibida');
+                const text = await response.text();
+
+                if (response.ok) {
+                    console.log('✅ Importación completada (respuesta HTML)');
+                    success('Importación completada');
+                    closeImportModal();
+                    window.location.reload();
+                } else {
+                    console.error('❌ Error del servidor:', response.status);
+                    error('Error al procesar la solicitud (HTTP ' + response.status + '). Revisa los logs del servidor.');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error de conexión:', error);
+            console.error('Stack:', error.stack);
+            error('Error de conexión con el servidor. Verifica que el servidor esté funcionando. Detalle: ' + error.message);
+        } finally {
+            console.log('🏁 Estableciendo isImporting a false');
+            setIsImporting(false);
+        }
     };
 
     const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400 transition-all duration-200 text-sm";
@@ -270,11 +411,31 @@ export default function IngresosIndex({ ingresos, totales, filters }) {
     return (
         <AppLayout title="Ingresos">
             <Head title="Ingresos" />
+            <ToastContainer />
 
             {/* Mensajes Flash */}
             {flash?.success && (
-                <div className="mb-6 p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 rounded-lg">
+                <div className="mb-6 p-4 bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-200 rounded-lg flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                    </svg>
                     {flash.success}
+                </div>
+            )}
+            {flash?.error && (
+                <div className="mb-6 p-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 rounded-lg flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+                    </svg>
+                    {flash.error}
+                </div>
+            )}
+            {flash?.warning && (
+                <div className="mb-6 p-4 bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-700 text-yellow-700 dark:text-yellow-200 rounded-lg flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                    </svg>
+                    {flash.warning}
                 </div>
             )}
 
@@ -662,12 +823,13 @@ export default function IngresosIndex({ ingresos, totales, filters }) {
                 onConfirm={handleDeleteConfirm}
                 ingreso={ingresoToDelete}
             />
-            
+
             {/* Modal para Importar Excel */}
             <ImportExcelModal
                 isOpen={showImportModal}
                 onClose={closeImportModal}
                 onSubmit={handleImportSubmit}
+                isSubmitting={isImporting}
             />
         </AppLayout>
     );

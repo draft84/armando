@@ -11,7 +11,9 @@ if (typeof window !== 'undefined') {
         if (window.Ziggy && typeof window.Ziggy.route === 'function') {
             return window.Ziggy.route(name, params, absolute);
         }
+        // Fallback: construir URL manualmente
         console.warn('Ziggy no está inicializado. Usando fallback.');
-        return '#' + name;
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/${name.replace('.', '/')}`;
     };
 }

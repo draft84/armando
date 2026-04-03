@@ -13,7 +13,7 @@ use App\Http\Controllers\DashboardController;
 // Login en la raíz
 Route::get('/', function () {
     return inertia('Auth/Login');
-})->name('home');
+})->name('login');
 
 // Rutas de autenticación
 Route::post('/login', [App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'store']);
@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/ingresos/{ingreso}/edit', [IngresoController::class, 'edit'])->name('ingresos.edit');
     Route::put('/ingresos/{ingreso}', [IngresoController::class, 'update'])->name('ingresos.update');
     Route::delete('/ingresos/{ingreso}', [IngresoController::class, 'destroy'])->name('ingresos.destroy');
+    Route::post('/ingresos/import', [IngresoController::class, 'import'])->name('ingresos.import');
     
     // Resumen
     Route::get('/resumen', [App\Http\Controllers\ResumenController::class, 'index'])->name('resumen.index');

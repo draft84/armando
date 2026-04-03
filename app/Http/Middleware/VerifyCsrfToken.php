@@ -12,6 +12,6 @@ class VerifyCsrfToken extends Middleware
      * @var array<int, string>
      */
     protected $except = [
-        //
+        'ingresos/import', // Excluir importación de CSRF para permitir subida de archivos con fetch()
     ];
 }

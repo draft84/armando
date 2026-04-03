@@ -16,3 +16,8 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+QWEN.md
+check_excel.php
+check_resumen.php
+check_resumen2.php
+test_import_direct.php

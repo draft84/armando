@@ -9,7 +9,6 @@ export default function AppLayout({ children, title }) {
     const [darkMode, setDarkMode] = useState(false);
 
     useEffect(() => {
-        // Verificar preferencia de tema guardada
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             setDarkMode(true);
@@ -34,21 +33,21 @@ export default function AppLayout({ children, title }) {
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <Sidebar 
-                isOpen={sidebarOpen} 
+            <Sidebar
+                isOpen={sidebarOpen}
                 toggleSidebar={toggleSidebar}
                 currentPage={component.replace('/', '.').replace('Index', '')}
             />
-            
-            <div 
+
+            <div
                 className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}
             >
-                <Header 
-                    toggleSidebar={toggleSidebar} 
+                <Header
+                    toggleSidebar={toggleSidebar}
                     darkMode={darkMode}
                     toggleDarkMode={toggleDarkMode}
                 />
-                
+
                 <main className="p-6">
                     {title && (
                         <div className="mb-6">
