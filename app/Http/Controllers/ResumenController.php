@@ -64,7 +64,7 @@ class ResumenController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'item' => 'required|integer',
+            'item' => 'nullable|integer',
             'codigo' => 'required|string|max:255|unique:resumens,codigo',
             'especie' => 'required|string|max:255',
             'producto' => 'required|string|max:255',
@@ -72,9 +72,9 @@ class ResumenController extends Controller
             'estado' => 'nullable|string|max:50',
             'talla' => 'required|string|max:50',
             'empaque' => 'required|string|max:255',
-            'ingresos' => 'nullable|integer',
-            'salidas' => 'nullable|integer',
-            'lb' => 'nullable|numeric',
+            'ingresos' => 'nullable|numeric',
+            'salidas' => 'nullable|numeric',
+            'lb' => 'nullable|string|max:10',
             'observacion_organoleptica' => 'nullable|string',
         ]);
 
@@ -110,7 +110,7 @@ class ResumenController extends Controller
     public function update(Request $request, Resumen $resumen)
     {
         $validated = $request->validate([
-            'item' => 'required|integer',
+            'item' => 'nullable|integer',
             'codigo' => 'required|string|max:255|unique:resumens,codigo,' . $resumen->id,
             'especie' => 'required|string|max:255',
             'producto' => 'required|string|max:255',
@@ -118,9 +118,9 @@ class ResumenController extends Controller
             'estado' => 'nullable|string|max:50',
             'talla' => 'required|string|max:50',
             'empaque' => 'required|string|max:255',
-            'ingresos' => 'nullable|integer',
-            'salidas' => 'nullable|integer',
-            'lb' => 'nullable|numeric',
+            'ingresos' => 'nullable|numeric',
+            'salidas' => 'nullable|numeric',
+            'lb' => 'nullable|string|max:10',
             'observacion_organoleptica' => 'nullable|string',
         ]);
 

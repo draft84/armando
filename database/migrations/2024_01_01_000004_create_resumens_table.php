@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('resumens', function (Blueprint $table) {
             $table->id();
-            $table->integer('item')->comment('ITEM');
+            $table->integer('item')->nullable()->comment('ITEM');
             $table->string('codigo')->unique()->comment('CODIGO');
             $table->string('especie')->comment('ESPECIE');
             $table->string('producto')->comment('PRODUCTO');
@@ -21,10 +21,10 @@ return new class extends Migration
             $table->string('estado')->default('IQF')->comment('ESTADO');
             $table->string('talla')->comment('TALLA');
             $table->string('empaque')->comment('EMPAQUE');
-            $table->integer('ingresos')->default(0)->comment('INGRESOS - Fórmula: SUMIFS');
-            $table->integer('salidas')->default(0)->comment('SALIDAS - Fórmula: SUMIFS');
-            $table->integer('stock')->default(0)->comment('STOCK - Fórmula: INGRESOS - SALIDAS');
-            $table->decimal('lb', 10, 2)->nullable()->comment('LB');
+            $table->decimal('ingresos', 12, 2)->default(0)->comment('INGRESOS - Total libras ingresadas (SUMIFS)');
+            $table->decimal('salidas', 12, 2)->default(0)->comment('SALIDAS - Total libras salidas (SUMIFS)');
+            $table->decimal('stock', 12, 2)->default(0)->comment('STOCK - Fórmula: INGRESOS - SALIDAS');
+            $table->string('lb')->default('LB')->comment('Unidad de medida');
             $table->text('observacion_organoleptica')->nullable()->comment('Observacion organoleptica Actual');
             $table->timestamps();
 

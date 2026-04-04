@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IngresoController;
+use App\Http\Controllers\SalidaController;
 use App\Http\Controllers\DashboardController;
 
 /*
@@ -23,7 +24,7 @@ Route::post('/logout', [App\Http\Controllers\Auth\AuthenticatedSessionController
 Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+
     // Ingresos
     Route::get('/ingresos', [IngresoController::class, 'index'])->name('ingresos.index');
     Route::get('/ingresos/create', [IngresoController::class, 'create'])->name('ingresos.create');
@@ -33,7 +34,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/ingresos/{ingreso}', [IngresoController::class, 'update'])->name('ingresos.update');
     Route::delete('/ingresos/{ingreso}', [IngresoController::class, 'destroy'])->name('ingresos.destroy');
     Route::post('/ingresos/import', [IngresoController::class, 'import'])->name('ingresos.import');
-    
+
     // Resumen
     Route::get('/resumen', [App\Http\Controllers\ResumenController::class, 'index'])->name('resumen.index');
     Route::get('/resumen/create', [App\Http\Controllers\ResumenController::class, 'create'])->name('resumen.create');
@@ -43,9 +44,14 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/resumen/{resumen}', [App\Http\Controllers\ResumenController::class, 'update'])->name('resumen.update');
     Route::delete('/resumen/{resumen}', [App\Http\Controllers\ResumenController::class, 'destroy'])->name('resumen.destroy');
     Route::post('/resumen/import', [App\Http\Controllers\ResumenController::class, 'import'])->name('resumen.import');
-    
+
     // Salidas
-    Route::get('/salidas', function () {
-        return inertia('Salidas/Index');
-    })->name('salidas.index');
+    Route::get('/salidas', [SalidaController::class, 'index'])->name('salidas.index');
+    Route::get('/salidas/create', [SalidaController::class, 'create'])->name('salidas.create');
+    Route::post('/salidas', [SalidaController::class, 'store'])->name('salidas.store');
+    Route::get('/salidas/{salida}', [SalidaController::class, 'show'])->name('salidas.show');
+    Route::get('/salidas/{salida}/edit', [SalidaController::class, 'edit'])->name('salidas.edit');
+    Route::put('/salidas/{salida}', [SalidaController::class, 'update'])->name('salidas.update');
+    Route::delete('/salidas/{salida}', [SalidaController::class, 'destroy'])->name('salidas.destroy');
+    Route::post('/salidas/import', [SalidaController::class, 'import'])->name('salidas.import');
 });

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Ingreso;
+use App\Models\Salida;
 use App\Models\Resumen;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -10,14 +10,14 @@ use Inertia\Inertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
-class IngresoController extends Controller
+class SalidaController extends Controller
 {
     /**
      * Show the form for creating a new resource.
      */
     public function create()
     {
-        return Inertia::render('Ingresos/Create');
+        return Inertia::render('Salidas/Create');
     }
 
     /**
@@ -28,7 +28,7 @@ class IngresoController extends Controller
         $perPage = $request->get('perPage', 5);
         $search = $request->get('search', '');
 
-        $query = Ingreso::query();
+        $query = Salida::query();
 
         // Búsqueda en tiempo real
         if ($search) {
@@ -38,19 +38,21 @@ class IngresoController extends Controller
                     ->orWhere('especie', 'like', "%{$search}%")
                     ->orWhere('producto', 'like', "%{$search}%")
                     ->orWhere('calidad', 'like', "%{$search}%")
-                    ->orWhere('talla', 'like', "%{$search}%");
+                    ->orWhere('talla', 'like', "%{$search}%")
+                    ->orWhere('cliente', 'like', "%{$search}%")
+                    ->orWhere('ndoc', 'like', "%{$search}%");
             });
         }
 
-        $ingresos = $query->orderBy('fechaemp', 'desc')
+        $salidas = $query->orderBy('fecha', 'desc')
             ->paginate($perPage)
             ->withQueryString();
 
         // Totales del resumen
-        $totales = Ingreso::getTotales();
+        $totales = Salida::getTotales();
 
-        return Inertia::render('Ingresos/Index', [
-            'ingresos' => $ingresos,
+        return Inertia::render('Salidas/Index', [
+            'salidas' => $salidas,
             'totales' => $totales,
             'filters' => [
                 'search' => $search,
@@ -66,7 +68,7 @@ class IngresoController extends Controller
     {
         $validated = $request->validate([
             'items' => 'required|integer',
-            'fechaemp' => 'required|date',
+            'fecha' => 'required|date',
             'lote' => 'required|string|max:255',
             'codigo' => 'required|string|max:255',
             'caja' => 'required|integer',
@@ -83,42 +85,44 @@ class IngresoController extends Controller
             'cuarto' => 'nullable|integer',
             'posicion' => 'nullable|string|max:255',
             'tarima' => 'nullable|integer',
+            'cliente' => 'nullable|string|max:255',
+            'ndoc' => 'nullable|string|max:255',
         ]);
 
-        Ingreso::create($validated);
+        Salida::create($validated);
 
-        return redirect()->route('ingresos.index')
-            ->with('success', 'Ingreso creado exitosamente.');
+        return redirect()->route('salidas.index')
+            ->with('success', 'Salida creada exitosamente.');
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Ingreso $ingreso)
+    public function show(Salida $salida)
     {
-        return Inertia::render('Ingresos/Show', [
-            'ingreso' => $ingreso,
+        return Inertia::render('Salidas/Show', [
+            'salida' => $salida,
         ]);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Ingreso $ingreso)
+    public function edit(Salida $salida)
     {
-        return Inertia::render('Ingresos/Edit', [
-            'ingreso' => $ingreso,
+        return Inertia::render('Salidas/Edit', [
+            'salida' => $salida,
         ]);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Ingreso $ingreso)
+    public function update(Request $request, Salida $salida)
     {
         $validated = $request->validate([
             'items' => 'required|integer',
-            'fechaemp' => 'required|date',
+            'fecha' => 'required|date',
             'lote' => 'required|string|max:255',
             'codigo' => 'required|string|max:255',
             'caja' => 'required|integer',
@@ -135,23 +139,25 @@ class IngresoController extends Controller
             'cuarto' => 'nullable|integer',
             'posicion' => 'nullable|string|max:255',
             'tarima' => 'nullable|integer',
+            'cliente' => 'nullable|string|max:255',
+            'ndoc' => 'nullable|string|max:255',
         ]);
 
-        $ingreso->update($validated);
+        $salida->update($validated);
 
-        return redirect()->route('ingresos.index')
-            ->with('success', 'Ingreso actualizado exitosamente.');
+        return redirect()->route('salidas.index')
+            ->with('success', 'Salida actualizada exitosamente.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Ingreso $ingreso)
+    public function destroy(Salida $salida)
     {
-        $ingreso->delete();
+        $salida->delete();
 
-        return redirect()->route('ingresos.index')
-            ->with('success', 'Ingreso eliminado exitosamente.');
+        return redirect()->route('salidas.index')
+            ->with('success', 'Salida eliminada exitosamente.');
     }
 
     /**
@@ -159,7 +165,7 @@ class IngresoController extends Controller
      */
     public function import(Request $request)
     {
-        Log::info('=== Inicio de importación ===');
+        Log::info('=== Inicio de importación de Salidas ===');
 
         if (!$request->hasFile('file')) {
             Log::error('No se recibió ningún archivo en la petición');
@@ -177,29 +183,23 @@ class IngresoController extends Controller
             $file = $request->file('file');
             Log::info('Archivo recibido: ' . $file->getClientOriginalName());
 
-            // Usar reader con lectura ligera
-            $reader = IOFactory::createReaderForFile($file->getRealPath());
-            $reader->setReadDataOnly(true);
-            $reader->setReadEmptyCells(false);
-            $spreadsheet = $reader->load($file->getRealPath());
-            $worksheet = $spreadsheet->getActiveSheet();
+            // Leer valores crudos directamente del XML del xlsx para evitar
+            // errores con fórmulas de tabla estructurada
+            $rawData = $this->readRawXlsxValues($file->getRealPath());
+            
+            if (empty($rawData)) {
+                throw new \Exception('El archivo Excel está vacío o no se pudo leer.');
+            }
 
-            $highestRow = $worksheet->getHighestRow();
-            $highestColumn = $worksheet->getHighestColumn();
-            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+            $totalRows = count($rawData);
+            Log::info("Filas leídas: {$totalRows}");
 
-            Log::info("Dimensiones: {$highestRow} filas x {$highestColumn} (col {$highestColumnIndex})");
-
-            $ingresosCreados = 0;
+            $salidasCreadas = 0;
             $errores = [];
 
-            // Saltar fila 1 (encabezados), empezar en fila 2
-            for ($row = 2; $row <= $highestRow; $row++) {
-                $rowData = [];
-                for ($col = 1; $col <= $highestColumnIndex; $col++) {
-                    $cell = $worksheet->getCellByColumnAndRow($col, $row);
-                    $rowData[] = $cell->getCalculatedValue();
-                }
+            // Saltar fila 0 (encabezados), empezar en índice 1
+            for ($i = 1; $i < $totalRows; $i++) {
+                $rowData = $rawData[$i];
 
                 // Saltar filas vacías
                 if (empty(array_filter($rowData, function($cell) { return $cell !== null && $cell !== ''; }))) {
@@ -207,10 +207,11 @@ class IngresoController extends Controller
                 }
 
                 try {
-                    // Estructura del Excel:
-                    // 0:ITEMS, 1:FECHAEMP, 2:LOTE, 3:CODIGO, 4:CAJA, 5:ESPECIE, 6:PRODUCTO,
+                    // Estructura del Excel para Salidas:
+                    // 0:ITEMS, 1:FECHA, 2:LOTE, 3:CODIGO, 4:CAJA, 5:ESPECIE, 6:PRODUCTO,
                     // 7:CALIDAD, 8:FECHA ELAB, 9:FECHAVENCI, 10:CAJA2, 11:TALLA, 12:UDS,
-                    // 13:LIBRAS, 14:PROMEDIO, 15:QUEES, 16:EMPAQUE, 17:CUARTO, 18:POSICION, 19:TARIMA
+                    // 13:LIBRAS, 14:PROMEDIO, 15:QUEES, 16:EMPAQUE, 17:CUARTO, 18:POSICION,
+                    // 19:TARIMA, 20:CLIENTE, 21:N°DOC
 
                     if (empty($rowData[2])) {
                         throw new \Exception('El campo LOTE es requerido y está vacío.');
@@ -219,23 +220,23 @@ class IngresoController extends Controller
                         throw new \Exception('El campo CODIGO es requerido y está vacío.');
                     }
 
-                    $fechaemp = $this->parseDate($rowData[1] ?? null);
+                    $fecha = $this->parseDate($rowData[1] ?? null);
                     $fecha_elab = $this->parseDate($rowData[8] ?? null);
                     $fechavenci = $this->parseDate($rowData[9] ?? null);
 
-                    if (!$fechaemp) {
-                        throw new \Exception('El campo FECHAEMP es requerido pero está vacío.');
+                    if (!$fecha) {
+                        throw new \Exception('El campo FECHA es requerido pero está vacío o tiene formato inválido.');
                     }
                     if (!$fecha_elab) {
-                        throw new \Exception('El campo FECHA ELAB es requerido pero está vacío.');
+                        throw new \Exception('El campo FECHA ELAB es requerido pero está vacío o tiene formato inválido.');
                     }
                     if (!$fechavenci) {
-                        throw new \Exception('El campo FECHAVENCI es requerido pero está vacío.');
+                        throw new \Exception('El campo FECHAVENCI es requerido pero está vacío o tiene formato inválido.');
                     }
 
                     $data = [
                         'items' => is_numeric($rowData[0] ?? null) ? (int) $rowData[0] : null,
-                        'fechaemp' => $fechaemp,
+                        'fecha' => $fecha,
                         'lote' => trim($rowData[2]),
                         'codigo' => trim($rowData[3]),
                         'caja' => is_numeric($rowData[4] ?? 0) ? (int) $rowData[4] : 0,
@@ -251,60 +252,57 @@ class IngresoController extends Controller
                         'promedio' => is_numeric($rowData[14] ?? null) ? $rowData[14] : null,
                         'quees' => trim($rowData[15] ?? 'INVFISICO'),
                         'empaque' => trim($rowData[16] ?? 'CAJA LBS LIBRE'),
-                        'cuarto' => is_numeric($rowData[17] ?? 1) ? (int) $rowData[17] : 1,
+                        'cuarto' => is_numeric($rowData[17] ?? null) ? (int) $rowData[17] : null,
                         'posicion' => trim($rowData[18] ?? ''),
-                        'tarima' => is_numeric($rowData[19] ?? 1) ? (int) $rowData[19] : 1,
+                        'tarima' => is_numeric($rowData[19] ?? null) ? (int) $rowData[19] : null,
+                        'cliente' => trim($rowData[20] ?? ''),
+                        'ndoc' => trim($rowData[21] ?? ''),
                     ];
 
-                    Ingreso::create($data);
-                    $ingresosCreados++;
+                    Salida::create($data);
+                    $salidasCreadas++;
                 } catch (\Exception $e) {
-                    $errores[] = "Fila {$row}: " . $e->getMessage();
+                    $errores[] = "Fila {$i}: " . $e->getMessage();
                 }
 
                 // Liberar memoria cada 100 filas
-                if ($row % 100 === 0) {
+                if ($i % 100 === 0) {
                     gc_collect_cycles();
                 }
             }
 
-            // Liberar memoria
-            $spreadsheet->disconnectWorksheets();
-            unset($spreadsheet, $reader);
             gc_collect_cycles();
 
-            Log::info("=== Fin de importación - Registros creados: {$ingresosCreados}, Errores: " . count($errores) . ' ===');
+            Log::info("=== Fin de importación - Registros creados: {$salidasCreadas}, Errores: " . count($errores) . ' ===');
 
             // Sincronizar resumen automáticamente después de importar
             Resumen::syncAll();
             Log::info('Resumen sincronizado después de importación');
 
-            // Si es petición AJAX, devolver JSON
             if ($request->wantsJson() || $request->ajax()) {
                 if (!empty($errores)) {
                     return response()->json([
                         'success' => true,
-                        'message' => "Se importaron {$ingresosCreados} registros, pero hubo " . count($errores) . " errores.",
-                        'count' => $ingresosCreados,
+                        'message' => "Se importaron {$salidasCreadas} registros, pero hubo " . count($errores) . " errores.",
+                        'count' => $salidasCreadas,
                         'errores' => array_slice($errores, 0, 10),
                     ]);
                 }
 
                 return response()->json([
                     'success' => true,
-                    'message' => "Se importaron {$ingresosCreados} registros exitosamente.",
-                    'count' => $ingresosCreados,
+                    'message' => "Se importaron {$salidasCreadas} registros exitosamente.",
+                    'count' => $salidasCreadas,
                 ]);
             }
 
-            // Si no, redirigir con mensaje flash
             if ($errores) {
-                return redirect()->route('ingresos.index')
-                    ->with('warning', "Se importaron {$ingresosCreados} registros, pero hubo errores en algunos: " . implode(', ', array_slice($errores, 0, 5)));
+                return redirect()->route('salidas.index')
+                    ->with('warning', "Se importaron {$salidasCreadas} registros, pero hubo errores en algunos: " . implode(', ', array_slice($errores, 0, 5)));
             }
 
-            return redirect()->route('ingresos.index')
-                ->with('success', "Se importaron {$ingresosCreados} registros exitosamente.");
+            return redirect()->route('salidas.index')
+                ->with('success', "Se importaron {$salidasCreadas} registros exitosamente.");
         } catch (\Exception $e) {
             Log::error('Error general en import: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
@@ -316,7 +314,7 @@ class IngresoController extends Controller
                 ], 500);
             }
 
-            return redirect()->route('ingresos.index')
+            return redirect()->route('salidas.index')
                 ->with('error', 'Error al importar el archivo: ' . $e->getMessage());
         }
     }
@@ -330,7 +328,7 @@ class IngresoController extends Controller
             return null;
         }
 
-        // Si es objeto DateTime (PhpSpreadsheet a veces lo convierte automáticamente)
+        // Si es objeto DateTime
         if ($value instanceof \DateTimeInterface) {
             return $value->format('Y-m-d H:i:s');
         }
@@ -397,5 +395,141 @@ class IngresoController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Lee valores crudos de un archivo xlsx directamente del XML,
+     * sin intentar evaluar fórmulas. Esto evita errores con
+     * fórmulas de tabla estructurada (=Tabla1[[#This Row],[...]])
+     */
+    private function readRawXlsxValues($filePath): array
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            throw new \Exception('No se pudo abrir el archivo xlsx.');
+        }
+
+        // Leer shared strings (valores de texto compartidos)
+        $sharedStrings = [];
+        $ssXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($ssXml !== false) {
+            $ssXml = simplexml_load_string($ssXml);
+            if ($ssXml) {
+                foreach ($ssXml->si as $si) {
+                    $t = '';
+                    foreach ($si->t as $tNode) {
+                        $t .= (string) $tNode;
+                    }
+                    if ($t === '' && isset($si->r)) {
+                        foreach ($si->r as $r) {
+                            $t .= (string) $r->t;
+                        }
+                    }
+                    $sharedStrings[] = $t;
+                }
+            }
+        }
+
+        // Leer la primera hoja
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        if ($sheetXml === false) {
+            throw new \Exception('No se encontró la hoja de cálculo.');
+        }
+
+        $xml = simplexml_load_string($sheetXml);
+        if (!$xml) {
+            throw new \Exception('No se pudo parsear el XML de la hoja.');
+        }
+
+        // Parsear dimensiones
+        $dimension = (string) ($xml->dimension['ref'] ?? '');
+        $highestRow = 0;
+        if (preg_match('/\d+$/', $dimension, $matches)) {
+            $highestRow = (int) $matches[0];
+        }
+
+        // Construir mapa de columnas
+        $colMap = [];
+        if (isset($xml->sheetData->row)) {
+            foreach ($xml->sheetData->row as $row) {
+                $rowIndex = (int) $row['r'];
+                foreach ($row->c as $cell) {
+                    $cellRef = (string) $cell['r'];
+                    preg_match('/^([A-Z]+)/', $cellRef, $colMatch);
+                    $colLetter = $colMatch[1] ?? '';
+                    $colNum = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($colLetter);
+                    
+                    $value = null;
+                    $cellType = (string) ($cell['t'] ?? '');
+                    $hasFormula = isset($cell->f);
+                    
+                    if ($hasFormula) {
+                        // Celda con fórmula: leer el valor almacenado en <v>, NO evaluar
+                        if (isset($cell->v)) {
+                            $v = (string) $cell->v;
+                            if ($cellType === 's') {
+                                $value = $sharedStrings[(int) $v] ?? $v;
+                            } else {
+                                $value = is_numeric($v) ? (strpos($v, '.') !== false ? (float) $v : (int) $v) : $v;
+                            }
+                        }
+                        // Si no hay <v> (valor cacheado), value queda null
+                    } elseif ($cellType === 's') {
+                        // Shared string
+                        $idx = (int) $cell->v;
+                        $value = $sharedStrings[$idx] ?? null;
+                    } elseif ($cellType === 'inlineStr') {
+                        // Inline string
+                        $value = (string) ($cell->is->t ?? '');
+                    } elseif ($cellType === 'b') {
+                        // Boolean
+                        $value = (string) ($cell->v ?? '0') === '1';
+                    } elseif ($cellType === 'str') {
+                        // String result (from formula)
+                        $value = (string) ($cell->v ?? '');
+                    } elseif ($cellType === 'd') {
+                        // Date
+                        $value = (string) ($cell->v ?? '');
+                    } elseif ($cellType === 'n' || $cellType === '') {
+                        // Number or default
+                        if (isset($cell->v)) {
+                            $v = (string) $cell->v;
+                            $value = is_numeric($v) ? (strpos($v, '.') !== false ? (float) $v : (int) $v) : $v;
+                        }
+                    } else {
+                        // Fallback: cualquier otro tipo
+                        if (isset($cell->v)) {
+                            $value = (string) $cell->v;
+                        }
+                    }
+                    
+                    if (!isset($colMap[$rowIndex])) {
+                        $colMap[$rowIndex] = [];
+                    }
+                    $colMap[$rowIndex][$colNum] = $value;
+                }
+            }
+        }
+
+        // Convertir a array numerado continuo
+        $result = [];
+        // Encontrar el máximo de columnas
+        $maxCols = 22; // Mínimo 22 columnas para Salidas
+        foreach ($colMap as $cols) {
+            $maxCols = max($maxCols, max(array_keys($cols)));
+        }
+        
+        for ($r = 1; $r <= $highestRow; $r++) {
+            $rowData = [];
+            $rowCols = $colMap[$r] ?? [];
+            for ($c = 1; $c <= $maxCols; $c++) {
+                $rowData[] = $rowCols[$c] ?? null;
+            }
+            $result[] = $rowData;
+        }
+
+        return $result;
     }
 }

@@ -5,15 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Ingreso extends Model
+class Salida extends Model
 {
     use HasFactory;
 
-    protected $table = 'ingresos';
+    protected $table = 'salidas';
 
     protected $fillable = [
         'items',
-        'fechaemp',
+        'fecha',
         'lote',
         'codigo',
         'caja',
@@ -32,14 +32,19 @@ class Ingreso extends Model
         'cuarto',
         'posicion',
         'tarima',
+        'cliente',
+        'ndoc',
     ];
 
     protected $casts = [
-        'fechaemp' => 'datetime',
+        'fecha' => 'datetime',
         'fecha_elab' => 'datetime',
         'fechavenci' => 'datetime',
         'caja' => 'integer',
         'caja2' => 'integer',
+        'uds' => 'integer',
+        'cuarto' => 'integer',
+        'tarima' => 'integer',
     ];
 
     /**
@@ -49,24 +54,29 @@ class Ingreso extends Model
     {
         parent::boot();
 
-        static::saving(function ($ingreso) {
+        static::saving(function ($salida) {
             // Fórmula: CAJA2 = CAJA (réplica de la fórmula del Excel)
-            $ingreso->caja2 = $ingreso->caja;
+            $salida->caja2 = $salida->caja;
 
             // Fórmula: PROMEDIO = LIBRAS / UDS (réplica de la fórmula del Excel)
-            if ($ingreso->uds > 0 && $ingreso->libras) {
-                $ingreso->promedio = round($ingreso->libras / $ingreso->uds, 2);
+            if ($salida->uds > 0 && $salida->libras) {
+                $salida->promedio = round($salida->libras / $salida->uds, 2);
+            }
+
+            // Fórmula: CUARTO = LEN(CALIDAD) si no se proporciona
+            if (!$salida->cuarto && $salida->calidad) {
+                $salida->cuarto = strlen($salida->calidad);
             }
         });
 
         // Recalcular Resumen al crear o actualizar
-        static::saved(function ($ingreso) {
-            Resumen::syncFromIngreso($ingreso);
+        static::saved(function ($salida) {
+            Resumen::syncFromSalida($salida);
         });
 
         // Recalcular Resumen al eliminar
-        static::deleted(function ($ingreso) {
-            Resumen::syncFromIngreso($ingreso);
+        static::deleted(function ($salida) {
+            Resumen::syncFromSalida($salida);
         });
     }
 
@@ -76,7 +86,7 @@ class Ingreso extends Model
     public function scopeFechaCercana($query, $fecha = null)
     {
         $fecha = $fecha ?? now();
-        return $query->orderByRaw('ABS(DATEDIFF(fechaemp, ?))', [$fecha]);
+        return $query->orderByRaw('ABS(DATEDIFF(fecha, ?))', [$fecha]);
     }
 
     /**
@@ -85,7 +95,7 @@ class Ingreso extends Model
     public static function getTotales($fecha = null)
     {
         $query = self::query();
-        
+
         if ($fecha) {
             $query->fechaCercana($fecha);
         }
@@ -93,7 +103,7 @@ class Ingreso extends Model
         return [
             'total_cajas' => $query->sum('caja'),
             'total_items' => $query->count(),
-            'fecha_mas_cercana' => $query->min('fechaemp'),
+            'fecha_mas_cercana' => $query->min('fecha'),
         ];
     }
 }
