@@ -8,6 +8,7 @@ import {
     ChevronRightIcon,
     ClipboardDocumentListIcon,
     CurrencyDollarIcon,
+    CubeIcon,
 } from '@heroicons/react/24/outline';
 
 const menuItems = [
@@ -22,14 +23,19 @@ const menuItems = [
         icon: ArrowDownTrayIcon,
     },
     {
+        name: 'Salidas',
+        href: '/salidas',
+        icon: ArrowUpTrayIcon,
+    },
+    {
         name: 'Resumen',
         href: '/resumen',
         icon: DocumentTextIcon,
     },
     {
-        name: 'Salidas',
-        href: '/salidas',
-        icon: ArrowUpTrayIcon,
+        name: 'Inventario Cajas',
+        href: '/inventario-cajas',
+        icon: CubeIcon,
     },
     {
         name: 'Formatos Producción',

@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IngresoController;
 use App\Http\Controllers\SalidaController;
+use App\Http\Controllers\ResumenController;
+use App\Http\Controllers\InventarioCajasController;
 use App\Http\Controllers\DashboardController;
 
 /*
@@ -35,16 +37,6 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/ingresos/{ingreso}', [IngresoController::class, 'destroy'])->name('ingresos.destroy');
     Route::post('/ingresos/import', [IngresoController::class, 'import'])->name('ingresos.import');
 
-    // Resumen
-    Route::get('/resumen', [App\Http\Controllers\ResumenController::class, 'index'])->name('resumen.index');
-    Route::get('/resumen/create', [App\Http\Controllers\ResumenController::class, 'create'])->name('resumen.create');
-    Route::post('/resumen', [App\Http\Controllers\ResumenController::class, 'store'])->name('resumen.store');
-    Route::get('/resumen/{resumen}', [App\Http\Controllers\ResumenController::class, 'show'])->name('resumen.show');
-    Route::get('/resumen/{resumen}/edit', [App\Http\Controllers\ResumenController::class, 'edit'])->name('resumen.edit');
-    Route::put('/resumen/{resumen}', [App\Http\Controllers\ResumenController::class, 'update'])->name('resumen.update');
-    Route::delete('/resumen/{resumen}', [App\Http\Controllers\ResumenController::class, 'destroy'])->name('resumen.destroy');
-    Route::post('/resumen/import', [App\Http\Controllers\ResumenController::class, 'import'])->name('resumen.import');
-
     // Salidas
     Route::get('/salidas', [SalidaController::class, 'index'])->name('salidas.index');
     Route::get('/salidas/create', [SalidaController::class, 'create'])->name('salidas.create');
@@ -54,4 +46,20 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/salidas/{salida}', [SalidaController::class, 'update'])->name('salidas.update');
     Route::delete('/salidas/{salida}', [SalidaController::class, 'destroy'])->name('salidas.destroy');
     Route::post('/salidas/import', [SalidaController::class, 'import'])->name('salidas.import');
+
+    // Resumen
+    Route::get('/resumen', [ResumenController::class, 'index'])->name('resumen.index');
+    Route::get('/resumen/create', [ResumenController::class, 'create'])->name('resumen.create');
+    Route::post('/resumen', [ResumenController::class, 'store'])->name('resumen.store');
+    Route::get('/resumen/{resumen}', [ResumenController::class, 'show'])->name('resumen.show');
+    Route::get('/resumen/{resumen}/edit', [ResumenController::class, 'edit'])->name('resumen.edit');
+    Route::put('/resumen/{resumen}', [ResumenController::class, 'update'])->name('resumen.update');
+    Route::delete('/resumen/{resumen}', [ResumenController::class, 'destroy'])->name('resumen.destroy');
+    Route::post('/resumen/import', [ResumenController::class, 'import'])->name('resumen.import');
+
+    // Inventario de Cajas
+    Route::get('/inventario-cajas', [InventarioCajasController::class, 'index'])->name('inventario-cajas.index');
+    Route::get('/inventario-cajas/{id}', [InventarioCajasController::class, 'show'])->name('inventario-cajas.show');
+    Route::get('/buscar-caja', [InventarioCajasController::class, 'buscar'])->name('buscar-caja.index');
+    Route::get('/api/cajas/codigo/{codigo}', [InventarioCajasController::class, 'porCodigo']);
 });

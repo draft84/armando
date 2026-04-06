@@ -48,6 +48,14 @@ class Salida extends Model
     ];
 
     /**
+     * Relación con cajas vendidas
+     */
+    public function cajasVendidas()
+    {
+        return $this->hasMany(CajaInventario::class, 'salida_id');
+    }
+
+    /**
      * Boot the model.
      */
     protected static function boot()
@@ -77,6 +85,22 @@ class Salida extends Model
         // Recalcular Resumen al eliminar
         static::deleted(function ($salida) {
             Resumen::syncFromSalida($salida);
+        });
+
+        // Al crear una salida, marcar cajas como vendidas/usadas
+        static::created(function ($salida) {
+            CajaInventario::markBoxesAsSolded($salida);
+        });
+
+        // Al eliminar una salida, devolver cajas a stock
+        static::deleted(function ($salida) {
+            CajaInventario::where('salida_id', $salida->id)
+                ->update([
+                    'estado' => 'EN_STOCK',
+                    'salida_id' => null,
+                    'cliente' => null,
+                    'ndoc' => null,
+                ]);
         });
     }
 

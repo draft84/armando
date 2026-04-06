@@ -43,6 +43,14 @@ class Ingreso extends Model
     ];
 
     /**
+     * Relación con cajas creadas
+     */
+    public function cajas()
+    {
+        return $this->hasMany(CajaInventario::class, 'ingreso_id');
+    }
+
+    /**
      * Boot the model.
      */
     protected static function boot()
@@ -67,6 +75,21 @@ class Ingreso extends Model
         // Recalcular Resumen al eliminar
         static::deleted(function ($ingreso) {
             Resumen::syncFromIngreso($ingreso);
+        });
+
+        // Al crear un ingreso, registrar las cajas en inventario
+        static::created(function ($ingreso) {
+            // Si tiene caja (cantidad de cajas), crear registros individuales
+            if ($ingreso->caja > 0) {
+                CajaInventario::createFromIngreso($ingreso);
+            }
+        });
+
+        // Al eliminar un ingreso, marcar cajas como eliminadas
+        static::deleted(function ($ingreso) {
+            CajaInventario::where('ingreso_id', $ingreso->id)
+                ->where('estado', 'EN_STOCK')
+                ->update(['estado' => 'ELIMINADA']);
         });
     }
 
